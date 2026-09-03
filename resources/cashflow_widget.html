@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cashflow Widget</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            color: #0f172a;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+            position: relative;
+        }
+        
+        /* Drag partition handle */
+        .drag-handle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            cursor: row-resize;
+            z-index: 100;
+            background: transparent;
+            transition: background 0.2s;
+        }
+        .drag-handle:hover, .drag-handle.dragging {
+            background: rgba(37, 99, 235, 0.3);
+        }
+        
+        /* Scrollbar styling */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px 10px 16px;
+            background: rgba(255, 255, 255, 0.4);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        header h1 {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .icon-btn:hover {
+            color: #0f172a;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* Content Areas */
+        main {
+            flex: 1;
+            padding: 12px 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Clickable Main Dashboard Container */
+        .dashboard-content {
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* KPI Grid layout */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .kpi-card {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover {
+            border-color: rgba(37, 99, 235, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        .kpi-card.highlight {
+            border-color: rgba(37, 99, 235, 0.15);
+            background: linear-gradient(135deg, #f0f7ff, #ffffff);
+        }
+        .kpi-label {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .kpi-value {
+            font-size: 16px;
+            font-weight: 700;
+            margin-top: 4px;
+            color: #0f172a;
+        }
+        .kpi-card.highlight .kpi-value {
+            color: #2563eb;
+        }
+
+        /* Transaction Feed */
+        .feed-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .feed-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.06em;
+            margin-bottom: 2px;
+        }
+        .tx-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .tx-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .tx-item:hover {
+            background: #f8fafc;
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+        .tx-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+        .tx-merchant {
+            font-weight: 500;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tx-meta {
+            font-size: 10px;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tx-amount {
+            font-weight: 600;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        .tx-amount.income {
+            color: #16a34a;
+        }
+        .tx-amount.expense {
+            color: #1e293b;
+        }
+
+        /* Setup / Settings Modal Overlay */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.98);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 24px;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .overlay-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #2563eb;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .form-group {
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .form-group label {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .form-group input {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #0f172a;
+            font-family: inherit;
+            font-size: 12px;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        .form-actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        .btn-secondary {
+            background: rgba(0, 0, 0, 0.05);
+            color: #475569;
+        }
+        .btn-secondary:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* States */
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 12px;
+            color: #64748b;
+            font-size: 13px;
+        }
+        .spinner {
+            border: 2px solid rgba(0, 0, 0, 0.05);
+            border-left-color: #2563eb;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="custom-scrollbar">
+
+    <!-- Draggable Partition Handle -->
+    <div id="dragHandle" class="drag-handle"></div>
+
+    <!-- Settings Overlay -->
+    <div id="settingsOverlay" class="overlay">
+        <h2 class="overlay-title">Configure Supabase</h2>
+        <div class="form-group">
+            <label for="urlInput">Supabase URL</label>
+            <input type="text" id="urlInput" placeholder="https://your-project.supabase.co">
+        </div>
+        <div class="form-group">
+            <label for="keyInput">Anon Key</label>
+            <input type="password" id="keyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+        </div>
+        <div class="form-group">
+            <label for="appUrlInput">Cashflow Web App URL</label>
+            <input type="text" id="appUrlInput" placeholder="http://localhost:5173">
+        </div>
+        <div class="form-actions">
+            <button id="cancelBtn" class="btn btn-secondary">Cancel</button>
+            <button id="saveBtn" class="btn btn-primary">Save Settings</button>
+        </div>
+    </div>
+
+    <!-- Main Widget Header -->
+    <header>
+        <h1>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            Cashflow Snapshot
+        </h1>
+        <div class="header-actions">
+            <button id="refreshBtn" class="icon-btn" title="Refresh">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+            </button>
+            <button id="settingsBtn" class="icon-btn" title="Settings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="custom-scrollbar">
+        <div id="loadingState" class="status-container">
+            <div class="spinner"></div>
+            <span>Connecting to Supabase...</span>
+        </div>
+
+        <div id="setupPromptState" class="status-container" style="display: none;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: #64748b;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span style="text-align: center; padding: 0 16px;">Supabase credentials needed. Click the gear icon to set them up.</span>
+        </div>
+
+        <div id="errorState" class="status-container" style="display: none; color: #ef4444;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span id="errorMessage" style="text-align: center; padding: 0 16px;">Failed to fetch data</span>
+        </div>
+
+        <!-- Dashboard View (Clicking opens external app) -->
+        <div id="dashboardView" class="dashboard-content" style="display: none;">
+            <!-- KPI Cards Grid (2x2) -->
+            <div class="kpi-grid">
+                <div class="kpi-card highlight">
+                    <div class="kpi-label">Safe To Spend</div>
+                    <div id="safeToSpend" class="kpi-value">$0.00</div>
+                </div>
+                <div class="kpi-card" id="netCashflowCard">
+                    <div class="kpi-label">Net Cashflow</div>
+                    <div id="netCashflow" class="kpi-value">$0.00</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Cash</div>
+                    <div id="totalCash" class="kpi-value">$0.00</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">MTD Spending</div>
+                    <div id="mtdSpending" class="kpi-value">$0.00</div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions Feed -->
+            <div class="feed-container">
+                <div class="feed-title">Recent Activity</div>
+                <div id="txList" class="tx-list">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Constants & Config
+        let config = {
+            supabaseUrl: '',
+            supabaseKey: '',
+            cashflowUrl: 'http://localhost:5173'
+        };
+
+        // Cache elements
+        const settingsOverlay = document.getElementById('settingsOverlay');
+        const urlInput = document.getElementById('urlInput');
+        const keyInput = document.getElementById('keyInput');
+        const appUrlInput = document.getElementById('appUrlInput');
+        const saveBtn = document.getElementById('saveBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        const loadingState = document.getElementById('loadingState');
+        const setupPromptState = document.getElementById('setupPromptState');
+        const errorState = document.getElementById('errorState');
+        const errorMessage = document.getElementById('errorMessage');
+        const dashboardView = document.getElementById('dashboardView');
+
+        // Drag partitioning logic
+        const dragHandle = document.getElementById('dragHandle');
+        let isDragging = false;
+        let startY = 0;
+
+        dragHandle.addEventListener('pointerdown', (e) => {
+            isDragging = true;
+            startY = e.screenY;
+            dragHandle.setPointerCapture(e.pointerId);
+            dragHandle.classList.add('dragging');
+        });
+
+        dragHandle.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            const deltaY = e.screenY - startY;
+            if (deltaY !== 0) {
+                window.electronAPI.adjustSplit(deltaY);
+                startY = e.screenY;
+            }
+        });
+
+        dragHandle.addEventListener('pointerup', (e) => {
+            if (isDragging) {
+                isDragging = false;
+                dragHandle.releasePointerCapture(e.pointerId);
+                dragHandle.classList.remove('dragging');
+            }
+        });
+        
+        dragHandle.addEventListener('pointercancel', (e) => {
+            if (isDragging) {
+                isDragging = false;
+                dragHandle.releasePointerCapture(e.pointerId);
+                dragHandle.classList.remove('dragging');
+            }
+        });
+
+        // Formatters
+        const formatCurrency = (val) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(val || 0);
+        };
+
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        };
+
+        // UI View state managers
+        const showState = (state) => {
+            loadingState.style.display = state === 'loading' ? 'flex' : 'none';
+            setupPromptState.style.display = state === 'setup' ? 'flex' : 'none';
+            errorState.style.display = state === 'error' ? 'flex' : 'none';
+            dashboardView.style.display = state === 'dashboard' ? 'flex' : 'none';
+        };
+
+        // Open app when dashboard background is clicked (ignoring interactive items)
+        dashboardView.addEventListener('click', (e) => {
+            if (e.target.closest('#settingsBtn') || e.target.closest('#refreshBtn') || e.target.closest('.tx-item') || e.target.closest('#settingsOverlay')) {
+                return;
+            }
+            if (config.cashflowUrl) {
+                window.electronAPI.openExternal(config.cashflowUrl);
+            }
+        });
+
+        // Settings actions
+        settingsBtn.addEventListener('click', () => {
+            urlInput.value = config.supabaseUrl || '';
+            keyInput.value = config.supabaseKey || '';
+            appUrlInput.value = config.cashflowUrl || 'http://localhost:5173';
+            settingsOverlay.classList.add('active');
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            settingsOverlay.classList.remove('active');
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            const newPrefs = {
+                supabaseUrl: urlInput.value.trim().replace(/\/$/, ''), // Remove trailing slash
+                supabaseKey: keyInput.value.trim(),
+                cashflowUrl: appUrlInput.value.trim()
+            };
+
+            await window.electronAPI.savePreferences(newPrefs);
+            config = newPrefs;
+            settingsOverlay.classList.remove('active');
+            init();
+        });
+
+        refreshBtn.addEventListener('click', () => {
+            fetchData();
+        });
+
+        // Supabase Fetch
+        async function fetchData() {
+            if (!config.supabaseUrl || !config.supabaseKey) {
+                showState('setup');
+                return;
+            }
+
+            showState('loading');
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const currentMonthStr = `${year}-${month}`; // YYYY-MM
+
+            const headers = {
+                'apikey': config.supabaseKey,
+                'Authorization': `Bearer ${config.supabaseKey}`,
+                'Accept-Profile': 'cashflow'
+            };
+
+            try {
+                // 1. Fetch Month Summary
+                const summaryUrl = `${config.supabaseUrl}/rest/v1/v_current_month_summary?month=eq.${currentMonthStr}&select=*`;
+                const summaryRes = await fetch(summaryUrl, { headers });
+                
+                if (!summaryRes.ok) throw new Error(`Summary HTTP error! status: ${summaryRes.status}`);
+                
+                const summaryData = await summaryRes.json();
+                const summary = summaryData[0] || {
+                    safe_to_spend: 0,
+                    current_cash: 0,
+                    income_received: 0,
+                    cash_expenses: 0,
+                    card_spending: 0
+                };
+
+                // 2. Fetch Users (for resolving names)
+                const usersUrl = `${config.supabaseUrl}/rest/v1/app_users?select=*`;
+                let users = [];
+                try {
+                    const usersRes = await fetch(usersUrl, { headers });
+                    if (usersRes.ok) {
+                        users = await usersRes.json();
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch app_users, fallback to email', e);
+                }
+
+                const userMap = {};
+                users.forEach(u => {
+                    userMap[u.id] = u.display_name;
+                });
+
+                // 3. Fetch Last 3 Transactions
+                const txUrl = `${config.supabaseUrl}/rest/v1/transactions?select=*&limit=3&order=transaction_date.desc`;
+                const txRes = await fetch(txUrl, { headers });
+                
+                if (!txRes.ok) throw new Error(`Transactions HTTP error! status: ${txRes.status}`);
+                
+                const transactions = await txRes.json();
+
+                // Compute Net Cashflow & Spending
+                const mtdSpendingVal = (summary.cash_expenses || 0) + (summary.card_spending || 0);
+                const netCashflowVal = (summary.income_received || 0) - mtdSpendingVal;
+
+                // Update UI elements
+                document.getElementById('safeToSpend').innerText = formatCurrency(summary.safe_to_spend);
+                document.getElementById('totalCash').innerText = formatCurrency(summary.current_cash);
+                document.getElementById('mtdSpending').innerText = formatCurrency(mtdSpendingVal);
+                
+                const netCashflowEl = document.getElementById('netCashflow');
+                const netCashflowCard = document.getElementById('netCashflowCard');
+                netCashflowEl.innerText = (netCashflowVal >= 0 ? '+' : '') + formatCurrency(netCashflowVal);
+                
+                if (netCashflowVal >= 0) {
+                    netCashflowCard.style.background = 'linear-gradient(135deg, #f0fdf4, #ffffff)';
+                    netCashflowCard.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                    netCashflowEl.style.color = '#16a34a';
+                } else {
+                    netCashflowCard.style.background = 'linear-gradient(135deg, #fef2f2, #ffffff)';
+                    netCashflowCard.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                    netCashflowEl.style.color = '#dc2626';
+                }
+
+                // Build Transaction Feed
+                const txList = document.getElementById('txList');
+                txList.innerHTML = '';
+
+                if (transactions.length === 0) {
+                    txList.innerHTML = '<div style="font-size: 11px; color: #64748b; text-align: center; padding: 12px 0;">No transactions this month</div>';
+                } else {
+                    transactions.forEach(tx => {
+                        const div = document.createElement('div');
+                        div.className = 'tx-item';
+                        
+                        const addedBy = userMap[tx.paid_by_user_id] || userMap[tx.reported_by_user_id] || tx.paid_by_user_id || 'System';
+                        const dateFormatted = formatDate(tx.transaction_date);
+                        const isIncome = tx.type === 'Income';
+                        
+                        div.innerHTML = `
+                            <div class="tx-info">
+                                <span class="tx-merchant">${tx.merchant || tx.description || 'Transaction'}</span>
+                                <span class="tx-meta">${addedBy} • ${dateFormatted}</span>
+                            </div>
+                            <span class="tx-amount ${isIncome ? 'income' : 'expense'}">
+                                ${isIncome ? '+' : '-'}${formatCurrency(tx.amount)}
+                            </span>
+                        `;
+                        txList.appendChild(div);
+                    });
+                }
+
+                showState('dashboard');
+            } catch (err) {
+                console.error(err);
+                errorMessage.innerText = `Error: ${err.message}`;
+                showState('error');
+            }
+        }
+
+        // Init routine
+        async function init() {
+            showState('loading');
+            try {
+                const prefs = await window.electronAPI.getPreferences();
+                if (prefs) {
+                    config.supabaseUrl = prefs.supabaseUrl || '';
+                    config.supabaseKey = prefs.supabaseKey || '';
+                    config.cashflowUrl = prefs.cashflowUrl || 'http://localhost:5173';
+                }
+                
+                if (config.supabaseUrl && config.supabaseKey) {
+                    fetchData();
+                } else {
+                    showState('setup');
+                }
+            } catch (e) {
+                console.error('Failed to load preferences:', e);
+                errorMessage.innerText = 'Failed to load preferences.';
+                showState('error');
+            }
+        }
+
+        // Run init on load
+        init();
+
+        // Auto refresh every 5 minutes
+        setInterval(() => {
+            if (config.supabaseUrl && config.supabaseKey && dashboardView.style.display === 'flex') {
+                fetchData();
+            }
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
